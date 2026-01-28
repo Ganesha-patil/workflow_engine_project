@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow System - Simple Interface</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        input, select { padding: 8px; margin: 5px; width: 200px; }
+        .success { color: green; }
+        .error { color: red; }
+        .links { margin-top: 30px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>📋 Workflow System</h1>
+            <div class="alert alert-info m-3 mb-0">
+        <strong>Note:</strong> Only users with "approver" in their name can approve requests.
+        <br>
+    </div>
+        <!-- Create Request -->
+        <div class="card">
+            <h3>1. Create New Request</h3>
+            <div>
+                <label>Type:</label>
+                <select id="type">
+                    <option value="LEAVE">Leave</option>
+                    <option value="EXPENSE">Expense</option>
+                    <option value="PURCHASE">Purchase</option>
+                </select>
+            </div>
+            <div>
+                <label>User:</label>
+                <input type="text" id="user" placeholder="Your name">
+            </div>
+            <button onclick="createRequest()">Create Request</button>
+            <div id="createResult"></div>
+        </div>
+
+        <!-- Approve Request -->
+        <div class="card">
+            <h3>2. Approve Request</h3>
+            <div>
+                <label>Request ID:</label>
+                <input type="number" id="approveId" placeholder="Request ID">
+            </div>
+            <div>
+                <label>Approver:</label>
+                <input type="text" id="approver" placeholder="Approver name">
+            </div>
+            <button onclick="approveRequest()">Approve Request</button>
+            <div id="approveResult"></div>
+        </div>
+
+        <!-- View History -->
+        <div class="card">
+            <h3>3. View Request History</h3>
+            <div>
+                <label>Request ID:</label>
+                <input type="number" id="historyId" placeholder="Request ID">
+            </div>
+            <button onclick="viewHistory()">View History</button>
+            <pre id="historyResult"></pre>
+        </div>
+
+        <!-- H2 Database Links -->
+        <div class="links card">
+            <h3>📊 Database Management</h3>
+            <p>Use H2 Console to view data:</p>
+            <div>
+                <a href="/h2-console" target="_blank" style="color: blue; text-decoration: underline;">
+                    Open H2 Database Console
+                </a>
+            </div>
+            <p><small>JDBC URL: jdbc:h2:mem:workflowdb | Username: sa | Password: (blank)</small></p>
+        </div>
+    </div>
+
+    <script>
+        async function createRequest() {
+            const type = document.getElementById('type').value;
+            const user = document.getElementById('user').value;
+            
+            const response = await fetch('/requests?type=' + type + '&user=' + user, {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                const request = await response.json();
+                document.getElementById('createResult').innerHTML = 
+                    `<span class="success">✓ Created Request #${request.id}</span>`;
+            } else {
+                document.getElementById('createResult').innerHTML = 
+                    `<span class="error">Error creating request</span>`;
+            }
+        }
+
+        async function approveRequest() {
+            const id = document.getElementById('approveId').value;
+            const user = document.getElementById('approver').value;
+            
+            if (!id || !user) {
+                showAlert('approveResult', 'warning', 'Please fill all fields');
+                return;
+            }
+            
+            try {
+                // Show loading
+                showAlert('approveResult', 'info', 'Processing approval...');
+                
+                const response = await fetch(`/requests/${id}/approve?user=${encodeURIComponent(user)}`, {
+                    method: 'POST'
+                });
+                
+                // Get the response text
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    showAlert('approveResult', 'success', 
+                        `✅ Request ${id} approved successfully by ${user}!`);
+                    
+                    // Clear form
+                    document.getElementById('approveId').value = '';
+                    document.getElementById('approver').value = '';
+                    
+                } else {
+                    // Show error from server
+                    showAlert('approveResult', 'danger', 
+                        ` 'Request failed with status you are not approver ' `);
+                }
+                
+            } catch (error) {
+                showAlert('approveResult', 'danger', 
+                    `❌ Network Error: ${error.message}`);
+            }
+        }
+
+        // Helper function to show alerts
+        function showAlert(elementId, type, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+        }
+        async function viewHistory() {
+            const id = document.getElementById('historyId').value;
+            
+            const response = await fetch(`/requests/history/${id}`);
+            
+            if (response.ok) {
+                const history = await response.json();
+                document.getElementById('historyResult').textContent = 
+                    JSON.stringify(history, null, 2);
+            } else {
+                document.getElementById('historyResult').textContent = 
+                    'No history found for this request ID';
+            }
+        }
+    </script>
+</body>
+</html>
